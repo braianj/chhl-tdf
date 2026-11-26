@@ -1,0 +1,82 @@
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import type { Match } from '../types/tournament'
+import { MATCH_DURATION_MINUTES, OVERTIME_MINUTES, PERIOD_MINUTES, REGULATION_PERIODS, getAutomaticMatchStatus } from './matchStatus'
+
+describe('match duration', () => {
+  it('should use two ten-minute periods', () => {
+    expect(REGULATION_PERIODS).toBe(2)
+    expect(PERIOD_MINUTES).toBe(10)
+    expect(OVERTIME_MINUTES).toBe(5)
+  })
+
+  it('should keep the live window longer than the played minutes', () => {
+    expect(MATCH_DURATION_MINUTES).toBe(28)
+  })
+})
+
+describe('getAutomaticMatchStatus', () => {
+  let match: Match
+
+  beforeEach(() => {
+    match = {
+      id: 'match',
+      category: 'h10',
+      startDateTime: '2026-07-24T10:00:00-03:00',
+      stage: 'regular',
+      homeTeamId: 'home',
+      awayTeamId: 'away',
+      homeScore: null,
+      awayScore: null,
+      status: 'upcoming',
+      countsForStandings: true,
+    }
+  })
+
+  afterEach(() => {
+    match = undefined as unknown as Match
+  })
+
+  describe('when the start time has not arrived', () => {
+    it('should mark the match as upcoming', () => {
+      expect(getAutomaticMatchStatus(match, new Date('2026-07-24T09:59:00-03:00'))).toBe('upcoming')
+    })
+  })
+
+  describe('when the match is under way', () => {
+    it('should mark the match as live', () => {
+      expect(getAutomaticMatchStatus(match, new Date('2026-07-24T10:27:59-03:00'))).toBe('live')
+    })
+  })
+
+  describe('when the live window has elapsed', () => {
+    it('should mark the match as finished even without a score', () => {
+      expect(getAutomaticMatchStatus(match, new Date('2026-07-24T10:28:00-03:00'))).toBe('finished')
+    })
+  })
+
+  describe('when playoff participants are unknown', () => {
+    beforeEach(() => {
+      match.homeTeamId = undefined
+      match.homeLabel = 'Ganador semifinal'
+    })
+
+    it('should keep the match to be confirmed', () => {
+      expect(getAutomaticMatchStatus(match, new Date('2026-07-25T12:00:00-03:00'))).toBe('tbd')
+    })
+  })
+  describe('when a match was awarded by walkover', () => {
+    it('should be finished even during its own slot', () => {
+      const kickOff = new Date(match.startDateTime)
+      const walkover = { ...match, resolution: 'walkover' as const, homeScore: 1, awayScore: 0 }
+
+      expect(getAutomaticMatchStatus(walkover, kickOff)).toBe('finished')
+    })
+
+    it('should still wait for the result before calling it finished', () => {
+      const kickOff = new Date(match.startDateTime)
+      const pending = { ...match, resolution: 'walkover' as const }
+
+      expect(getAutomaticMatchStatus(pending, kickOff)).toBe('live')
+    })
+  })
+})
