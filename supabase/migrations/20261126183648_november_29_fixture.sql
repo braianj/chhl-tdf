@@ -1,3 +1,4 @@
+-- November 29 fixture transcribed from the tournament flyer.
 with entries(category, club, name) as (
   values
     ('h10', 'cau', 'CAU'), ('h10', 'dragones', 'Dragones'), ('h10', 'vikingos', 'Vikingos'),

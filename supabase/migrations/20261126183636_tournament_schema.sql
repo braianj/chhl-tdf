@@ -1,3 +1,4 @@
+-- Keep tournament roles separate from public scoresheet data.
 create table public.tournament_admins (
   email text primary key check (email = lower(btrim(email)) and position('@' in email) > 1),
   role text not null check (role in ('owner', 'editor'))
