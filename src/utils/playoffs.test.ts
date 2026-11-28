@@ -34,4 +34,13 @@ describe('when the H14 regular phase determines its finalists', () => {
       expect(resolvePlayoffParticipants([regular, final], teams)[1]).toBe(final)
     })
   })
+
+  describe('and the qualifying positions still require a draw', () => {
+    it('should keep the final unassigned', () => {
+      regular.homeScore = 1
+      regular.awayScore = 1
+
+      expect(resolvePlayoffParticipants([regular, final], teams)[1]).toBe(final)
+    })
+  })
 })

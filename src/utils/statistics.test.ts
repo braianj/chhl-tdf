@@ -76,6 +76,21 @@ describe('games played', () => {
     })
   })
 
+  describe('when shots were recorded by period', () => {
+    it('should add every period and derive shooting percentage from goals', () => {
+      const rows = calculatePlayerStatistics('h10', [
+        { id: 'g1', matchId: 'm1', category: 'h10', teamId: 'a', type: 'goal', playerName: 'Ana' },
+      ], [roster('m1', 'Ana', { shotsPeriod1: 2, shotsPeriod2: 1, shotsOvertime: 1 })])
+
+      expect(rows[0]).toMatchObject({ shotsOnTarget: 4, shootingPercentage: 25 })
+    })
+
+    it('should leave shooting percentage unavailable when no shots were recorded', () => {
+      expect(calculatePlayerStatistics('h10', [], [roster('m1', 'Ana')])[0])
+        .toMatchObject({ shotsOnTarget: 0, shootingPercentage: undefined })
+    })
+  })
+
   describe('when the roster holds the same player twice for one match', () => {
     it('should still count a single match', () => {
       const rows = calculatePlayerStatistics('h10', [], [

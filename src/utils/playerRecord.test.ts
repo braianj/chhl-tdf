@@ -100,6 +100,14 @@ describe('buildPlayerRecord', () => {
       expect(built.matches[1]).toMatchObject({ opponent: 'Ovejas Negras', jerseyNumber: 92 })
     })
 
+    it('should include per-match and tournament shot totals', () => {
+      const entry = { ...callUp('h-8', player.name, 4), shotsPeriod1: 2, shotsPeriod2: 3, shotsOvertime: 1 }
+      const built = record([entry], [event('e1')])
+
+      expect(built).toMatchObject({ shotsOnTarget: 6, shootingPercentage: expect.closeTo(16.67, 2) })
+      expect(built.matches[0]).toMatchObject({ shotsOnTarget: 6 })
+    })
+
     it('should list a match without a call-up but with an event, without counting it played', () => {
       const built = record([], [event('e1')])
 

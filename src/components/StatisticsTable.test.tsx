@@ -17,6 +17,7 @@ const row = (playerName: string, overrides: Partial<PlayerStatistic> = {}): Play
   penalties: 0,
   majorPenalties: 0,
   penaltyMinutes: 0,
+  shotsOnTarget: 0,
   ...overrides,
 })
 
@@ -84,6 +85,21 @@ describe('StatisticsTable', () => {
 
       expect(screen.getByText('Solo faltas')).toBeInTheDocument()
       expect(screen.queryByRole('list')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('when shots were loaded', () => {
+    it('should publish shot totals and shooting percentage', () => {
+      render(<StatisticsTable rows={[row('Tiradora', { goals: 1, points: 1, shotsOnTarget: 4, shootingPercentage: 25 })]} teams={teams} />)
+
+      expect(screen.getByRole('cell', { name: '4' })).toBeInTheDocument()
+      expect(screen.getByRole('cell', { name: '25%' })).toBeInTheDocument()
+    })
+
+    it('should include a player with shots even without points or penalties', () => {
+      render(<StatisticsTable rows={[row('Tirador', { shotsOnTarget: 2, shootingPercentage: 0 })]} teams={teams} />)
+
+      expect(screen.getByText('Tirador')).toBeInTheDocument()
     })
   })
 

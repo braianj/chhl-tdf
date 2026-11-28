@@ -223,6 +223,11 @@ describe('calculateStandings', () => {
     it('should rank the team with more points first', () => {
       expect(standings[0].team.id).toBe('a')
     })
+
+    it('should never share a position across different point totals', () => {
+      expect(standings.find((row) => row.team.id === 'a')?.position).toBe(1)
+      expect(standings.find((row) => row.team.id === 'b')?.position).not.toBe(1)
+    })
   })
 
   describe('when exactly two teams have equal points', () => {
@@ -380,21 +385,20 @@ describe('calculateStandings', () => {
       ], scoring)
     })
 
-    it('should separate them by the matches among themselves', () => {
+    it('should use the official direct points and direct goal difference criteria', () => {
       expect(standings.slice(0, 4).every((row) => row.points === 6)).toBe(true)
-      expect(standings.slice(0, 4).map((row) => row.team.id)).toEqual(['a', 'b', 'c', 'd'])
+      expect(standings.slice(0, 4).map((row) => row.team.id)).toEqual(['b', 'a', 'c', 'd'])
     })
 
-    it('should ignore goals conceded to a team outside the tie', () => {
-      // A has the worst overall goal difference of the four and still finishes first.
+    it('should use overall goal difference when direct criteria remain equal', () => {
       const [first] = standings
-      expect(first.team.id).toBe('a')
-      expect(first.goalDifference).toBeLessThan(standings[1].goalDifference)
+      expect(first.team.id).toBe('b')
+      expect(first.goalDifference).toBeGreaterThan(standings[1].goalDifference)
     })
   })
 
   describe('when the whole group is level and the mini-table says nothing', () => {
-    it('should fall back to the overall record', () => {
+    it('should keep equal teams pending a draw instead of deciding alphabetically', () => {
       // A perfect cycle: each beat the next by one goal, so the mini-table is identical
       // for all three. Only the goals scored outside it can tell them apart.
       const standings = calculateStandings('h10', teams, [
@@ -403,7 +407,19 @@ describe('calculateStandings', () => {
         createMatch({ id: 'm3', homeTeamId: 'c', awayTeamId: 'a', homeScore: 1, awayScore: 0 }),
       ], scoring)
 
-      expect(standings.slice(0, 3).map((row) => row.team.id)).toEqual(['a', 'b', 'c'])
+      expect(standings.slice(0, 3).map((row) => row.position)).toEqual([1, 1, 1])
+      expect(standings.slice(0, 3).every((row) => row.tiebreakPending)).toBe(true)
+    })
+  })
+
+  describe('when direct criteria remain equal', () => {
+    it('should use unique manual draw order only after every sporting criterion', () => {
+      teams[0].drawOrder = 2
+      teams[1].drawOrder = 1
+      const rows = calculateStandings('h10', teams.slice(0, 2), [], scoring)
+
+      expect(rows.map((row) => row.team.id)).toEqual(['b', 'a'])
+      expect(rows.every((row) => !row.tiebreakPending)).toBe(true)
     })
   })
 

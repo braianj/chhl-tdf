@@ -9,7 +9,8 @@
     "typecheck": "tsc -b --pretty false",
     "lint": "eslint .",
     "test": "vitest",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "generate:shots-sheet": "node scripts/generate-shots-sheet.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.119.2",
