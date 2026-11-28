@@ -627,11 +627,14 @@ function MatchResultForm({ match, published, teams, canReschedule = false, onSav
   }, [match.startDateTime])
 
   const isTied = homeScore !== null && awayScore !== null && homeScore === awayScore
+  const regularDraw = isTied && match.stage === 'regular'
+  const invalidFinalTie = isTied && match.stage !== 'regular'
   const startDateTime = canReschedule && date && time ? buildStartDateTime(date, time) : match.startDateTime
   const moved = startDateTime !== match.startDateTime
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
+    if (invalidFinalTie) return
     const resolved = isTied ? 'regulation' : resolution
     await saveMatch({ ...published, startDateTime, homeScore, awayScore, resolution: resolved })
     onSaved(moved ? 'Partido reprogramado.' : 'Resultado actualizado.')
@@ -642,7 +645,7 @@ function MatchResultForm({ match, published, teams, canReschedule = false, onSav
         <label><span>{getTeamName(match.homeTeamId, match.homeLabel, teams)}</span><input aria-label={`Goles de ${getTeamName(match.homeTeamId, match.homeLabel, teams)}`} type="number" min="0" placeholder="—" value={homeScore ?? ''} onChange={(event) => setHomeScore(event.target.value === '' ? null : Number(event.target.value))} /></label>
         <span className={styles.versus}>—</span>
         <label><span>{getTeamName(match.awayTeamId, match.awayLabel, teams)}</span><input aria-label={`Goles de ${getTeamName(match.awayTeamId, match.awayLabel, teams)}`} type="number" min="0" placeholder="—" value={awayScore ?? ''} onChange={(event) => setAwayScore(event.target.value === '' ? null : Number(event.target.value))} /></label>
-        <button type="submit">Guardar</button>
+        <button type="submit" disabled={invalidFinalTie}>Guardar</button>
       </div>
       {canReschedule && (
         <div className={styles.reschedule}>
@@ -659,8 +662,10 @@ function MatchResultForm({ match, published, teams, canReschedule = false, onSav
         </select>
       </label>
       <p className={styles.hint}>
-        {isTied
-          ? 'Un partido no puede terminar empatado. Cargá el resultado final del tiempo extra o de los penales.'
+        {regularDraw
+          ? 'En fase regular, el empate suma 1 punto para cada equipo.'
+          : invalidFinalTie
+            ? 'La final no puede terminar empatada. Cargá el resultado final del tiempo extra o de los penales.'
           : moved
             ? `Se va a reprogramar para el ${formatDay(startDateTime, TIMEZONE).toLocaleLowerCase('es')} a las ${formatTime(startDateTime, TIMEZONE)}.`
             : 'En tiempo reglamentario el ganador suma 3 y el perdedor 0. En tiempo extra o penales, 2 y 1.'}

@@ -44,9 +44,9 @@ export interface Match {
   notes?: string
 }
 
-// A match tied at the end of regulation goes to overtime, and to a shootout if it
-// is still tied. Both are worth fewer points than winning outright. A walkover is not
-// a way of playing the match, it is what happens when one side does not turn up.
+// A regular-phase match may finish tied. A final tied after regulation goes to
+// overtime, and then to a shootout if needed. A walkover is not a way of playing
+// the match, it is what happens when one side does not turn up.
 export type MatchResolution = 'regulation' | 'overtime' | 'shootout' | 'walkover'
 
 export interface ScoringRules {
@@ -60,7 +60,7 @@ export interface ScoringRules {
   walkoverWin: number
   walkoverLoss: number
   loss: number
-  // Only a safety net for malformed data: these tournaments have no draws.
+  // A regular-phase draw awards this value to both teams.
   draw: number
 }
 

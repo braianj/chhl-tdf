@@ -13,3 +13,5 @@ The team total should equal the opposing goalkeeper total of saves plus goals ag
 ## Standings note
 
 The supplied tournament notice defines the tiebreak order as direct-match points, direct-match goal difference, overall goal difference, overall goals for, fewer overall goals against, and finally a draw. The application does not substitute alphabetical order for the draw.
+
+Regular-phase matches may finish tied and award one point to each team. A final cannot finish tied.

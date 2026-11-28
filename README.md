@@ -14,4 +14,6 @@ The administration panel uses Supabase Auth with Google. Enable the Google provi
 
 Scoring, the official tiebreak order, the schedule, age groups, duration and final format follow the tournament material. A tie that reaches the final draw criterion stays visibly pending until an owner records the draw order; finals are not seeded from an unresolved table.
 
+A regular-phase match may finish tied and awards one point to each team. Finals must produce a winner through overtime or a shootout.
+
 Shots on target are loaded per player and period from the separate control sheet. Tournament totals and shooting percentages are derived, and the administration panel compares each team total with the opposing goalkeeper's saves plus goals against. See [docs/forms-2026.md](docs/forms-2026.md) for the paper-to-data rules and use `npm run generate:shots-sheet -- matches.json teams.json players.json output.html` to regenerate the printable form before printing it to PDF.
