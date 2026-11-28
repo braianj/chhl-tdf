@@ -10,6 +10,7 @@ export function resolvePlayoffParticipants(matches: Match[], teams: Team[]): Mat
       || other.homeScore === null || other.awayScore === null || !other.homeTeamId || !other.awayTeamId)) return match
     const categoryTeams = teams.filter((team) => team.category === match.category)
     const standings = calculateStandings(match.category, categoryTeams, regular, tournamentConfigs[match.category].scoring)
+    if (standings[0]?.tiebreakPending || standings[1]?.tiebreakPending) return match
     return {
       ...match,
       homeTeamId: match.homeTeamId ?? standings[0]?.team.id,

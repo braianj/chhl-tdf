@@ -36,9 +36,12 @@ export function StandingsTable({ rows, bands }: { rows: StandingRow[]; bands: Qu
           </tbody>
         </table>
       </div>
+      {rows.some((row) => row.tiebreakPending) && (
+        <p className={styles.pending}>Hay posiciones empatadas que requieren el sorteo oficial.</p>
+      )}
       <p className={styles.help}>
         GP: jugados · G: ganados (3 pts) · GOT: ganados en tiempo extra (2 pts) ·
-        POT: perdidos en tiempo extra (1 pt) · P: perdidos (0 pts) · DG: diferencia de gol
+        POT: perdidos en tiempo extra (1 pt) · P: perdidos (0 pts) · DG: diferencia de gol · posiciones iguales: sorteo pendiente
       </p>
     </section>
   )

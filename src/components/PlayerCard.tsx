@@ -50,6 +50,8 @@ export function PlayerCard({ player, team, teams, matches, rosters, events, onBa
         <div><dt>Goles</dt><dd>{record.goals}</dd></div>
         <div><dt>Asistencias</dt><dd>{record.assists}</dd></div>
         <div className={styles.highlight}><dt>Puntos</dt><dd>{record.points}</dd></div>
+        <div><dt>Tiros al arco</dt><dd>{record.shotsOnTarget}</dd></div>
+        <div><dt>Efectividad</dt><dd>{record.shootingPercentage === undefined ? '—' : `${record.shootingPercentage}%`}</dd></div>
         <div><dt>Faltas</dt><dd>{record.penalties}</dd></div>
         <div><dt>Minutos</dt><dd>{record.penaltyMinutes}</dd></div>
       </dl>
@@ -65,6 +67,7 @@ export function PlayerCard({ player, team, teams, matches, rosters, events, onBa
                 <span>
                   {formatShortDay(item.startDateTime, TIMEZONE)}
                   {item.jerseyNumber !== undefined ? ` · #${item.jerseyNumber}` : ''}
+                  {` · ${item.shotsOnTarget} TA`}
                 </span>
               </div>
               {item.actions.length === 0 ? (

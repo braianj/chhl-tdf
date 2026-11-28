@@ -1,4 +1,5 @@
 import type { Category, MatchEvent, MatchRosterEntry, PlayerStatistic } from '../types/tournament'
+import { shotsOnTarget } from './shots'
 
 const normalizeName = (name: string) => name.trim().replace(/\s+/g, ' ')
 
@@ -27,6 +28,8 @@ export function calculatePlayerStatistics(
       penalties: 0,
       majorPenalties: 0,
       penaltyMinutes: 0,
+      shotsOnTarget: 0,
+      shootingPercentage: undefined,
     }
     rows.set(key, created)
     return created
@@ -35,7 +38,8 @@ export function calculatePlayerStatistics(
   // Dressing for a match is playing it, so games played come from the match rosters.
   // A player counts once per match even if the roster holds duplicate entries.
   rosters.filter((entry) => entry.category === category).forEach((entry) => {
-    getRow(entry.playerName, entry.teamId)
+    const row = getRow(entry.playerName, entry.teamId)
+    row.shotsOnTarget += shotsOnTarget(entry)
     const key = rowKey(entry.teamId, entry.playerName)
     const played = appearances.get(key) ?? new Set<string>()
     played.add(entry.matchId)
@@ -61,6 +65,7 @@ export function calculatePlayerStatistics(
   rows.forEach((row, key) => {
     row.points = row.goals + row.assists
     row.played = appearances.get(key)?.size ?? 0
+    row.shootingPercentage = row.shotsOnTarget > 0 ? Math.round((row.goals / row.shotsOnTarget) * 10_000) / 100 : undefined
   })
 
   return [...rows.values()].sort((a, b) =>

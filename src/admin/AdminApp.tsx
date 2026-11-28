@@ -14,6 +14,7 @@ import { REGULATION_PERIODS } from '../utils/matchStatus'
 import { adminDocId, isValidAdminEmail, roleLabels, type AdminRole } from '../utils/admins'
 import { calculateDiscipline } from '../utils/discipline'
 import { hasGoalkeeperLine } from '../utils/goalkeepers'
+import { reconcileMatchShots, shotsOnTarget } from '../utils/shots'
 import styles from './AdminApp.module.css'
 
 type AdminView = 'matches' | 'teams'
@@ -255,6 +256,10 @@ function MatchWorkspace({ match, published, teams, players, rosters, events, can
   const editedEvent = events.find((event) => event.id === editing)
   const progress = getMatchProgress(match, rosters, events)
   const goalkeepers = rosters.filter(hasGoalkeeperLine).length
+  const homeShots = match.homeTeamId && match.awayTeamId
+    ? reconcileMatchShots(match.homeTeamId, match.awayTeamId, rosters) : { status: 'incomplete' as const }
+  const awayShots = match.homeTeamId && match.awayTeamId
+    ? reconcileMatchShots(match.awayTeamId, match.homeTeamId, rosters) : { status: 'incomplete' as const }
   const code = getMatchCode(match.id)
   const where = (
     <span>
@@ -369,6 +374,15 @@ function MatchWorkspace({ match, published, teams, players, rosters, events, can
           entries={rosters}
           onSaved={() => notify('Arquero actualizado.')}
         />
+        {[homeShots, awayShots].map((check, index) => {
+          if (check.status === 'incomplete') return null
+          const shootingId = index === 0 ? match.homeTeamId : match.awayTeamId
+          const name = teams.find((team) => team.id === shootingId)?.name ?? 'Equipo'
+          return <p key={shootingId} className={check.status === 'mismatch' ? styles.missing : styles.hint}>
+            {name}: {check.shooterTotal} tiros cargados, {check.goalkeeperTotal} enfrentados por el arquero rival.
+            {check.status === 'mismatch' ? ' Revisá ambas planillas.' : ' Coinciden.'}
+          </p>
+        })}
       </Step>
     </>
   )
@@ -537,17 +551,19 @@ function CreateTeamForm({ category, notify }: { category: Category; notify: (mes
 
 function TeamEditor({ team, position, onSaved }: { team: Team; position: number; onSaved: () => void }) {
   const [name, setName] = useState(team.name)
-  useEffect(() => setName(team.name), [team.name])
+  const [drawOrder, setDrawOrder] = useState(team.drawOrder?.toString() ?? '')
+  useEffect(() => { setName(team.name); setDrawOrder(team.drawOrder?.toString() ?? '') }, [team.name, team.drawOrder])
   const submit = async (event: FormEvent) => {
     event.preventDefault()
     if (!name.trim()) return
-    await saveTeam({ ...team, name: name.trim(), shortName: name.trim() })
+    await saveTeam({ ...team, name: name.trim(), shortName: name.trim(), drawOrder: numberOr(drawOrder) })
     onSaved()
   }
   return (
     <form className={styles.teamEditor} onSubmit={submit}>
       <span>{position}</span>
       <label>Nombre del equipo<input value={name} onChange={(event) => setName(event.target.value)} /></label>
+      <label>Orden de sorteo (solo si persiste el empate)<input type="number" min="1" value={drawOrder} onChange={(event) => setDrawOrder(event.target.value)} /></label>
       <button type="submit">Guardar</button>
     </form>
   )
@@ -756,9 +772,9 @@ function GoalkeeperForm({ teams, entries, onSaved }: {
         <form className={styles.eventForm} onSubmit={submit}>
           <label>Arquero/a<select required value={playerId} onChange={(event) => pick(event.target.value)}>
             <option value="">Seleccionar…</option>
-            {[...entries].sort((a, b) => a.jerseyNumber - b.jerseyNumber).map((entry) => (
+            {[...entries].sort((a, b) => (a.jerseyNumber ?? Number.MAX_SAFE_INTEGER) - (b.jerseyNumber ?? Number.MAX_SAFE_INTEGER)).map((entry) => (
               <option key={entry.id} value={entry.playerId}>
-                #{entry.jerseyNumber} · {entry.playerName} · {teamName(entry.teamId)}
+                {entry.jerseyNumber === undefined ? '' : `#${entry.jerseyNumber} · `}{entry.playerName} · {teamName(entry.teamId)}
               </option>
             ))}
           </select></label>
@@ -773,7 +789,7 @@ function GoalkeeperForm({ teams, entries, onSaved }: {
         return (
           <div key={entry.id}>
             <span>
-              <strong>#{entry.jerseyNumber} {entry.playerName}</strong> · {teamName(entry.teamId)}
+              <strong>{entry.jerseyNumber === undefined ? '' : `#${entry.jerseyNumber} `}{entry.playerName}</strong> · {teamName(entry.teamId)}
               {' · '}{entry.saves ?? 0} atajadas · {entry.goalsAgainst ?? 0} recibidos · {shots} tiros
               {entry.minutesPlayed !== undefined ? ` · ${entry.minutesPlayed} min` : ''}
             </span>
@@ -789,39 +805,55 @@ function MatchRosterForm({ match, teams, players, entries, onSaved }: {
   match: Match; teams: Team[]; players: Player[]; entries: MatchRosterEntry[]; onSaved: () => void
 }) {
   const eligibleTeamIds = [match.homeTeamId, match.awayTeamId]
-  const availablePlayers = players.filter((player) => player.active && eligibleTeamIds.includes(player.teamId) && !entries.some((entry) => entry.playerId === player.id))
+  const availablePlayers = players.filter((player) => player.active && eligibleTeamIds.includes(player.teamId))
   const [playerId, setPlayerId] = useState('')
   const [jerseyNumber, setJerseyNumber] = useState('')
+  const [shotsPeriod1, setShotsPeriod1] = useState('')
+  const [shotsPeriod2, setShotsPeriod2] = useState('')
+  const [shotsOvertime, setShotsOvertime] = useState('')
+  function entryFor(id: string) { return entries.find((entry) => entry.playerId === id) }
+  const pick = (id: string) => {
+    setPlayerId(id)
+    const existing = entryFor(id)
+    const player = players.find((item) => item.id === id)
+    setJerseyNumber(existing?.jerseyNumber?.toString() ?? player?.number?.toString() ?? '')
+    setShotsPeriod1(existing?.shotsPeriod1?.toString() ?? '')
+    setShotsPeriod2(existing?.shotsPeriod2?.toString() ?? '')
+    setShotsOvertime(existing?.shotsOvertime?.toString() ?? '')
+  }
   const submit = async (event: FormEvent) => {
     event.preventDefault()
     const player = players.find((item) => item.id === playerId)
-    if (!player || jerseyNumber === '') return
+    if (!player) return
+    const existing = entryFor(player.id)
     await saveMatchRosterEntry({
+      ...existing,
       id: `${match.id}_${player.id}`,
       matchId: match.id,
       category: match.category,
       teamId: player.teamId,
       playerId: player.id,
       playerName: player.name,
-      jerseyNumber: Number(jerseyNumber),
+      jerseyNumber: numberOr(jerseyNumber),
+      shotsPeriod1: numberOr(shotsPeriod1),
+      shotsPeriod2: numberOr(shotsPeriod2),
+      shotsOvertime: numberOr(shotsOvertime),
     })
-    setPlayerId(''); setJerseyNumber(''); onSaved()
+    setPlayerId(''); setJerseyNumber(''); setShotsPeriod1(''); setShotsPeriod2(''); setShotsOvertime(''); onSaved()
   }
   return (
     <div className={styles.roster}>
       <h3>Convocados para este partido</h3>
-      <p className={styles.hint}>Agregá solamente quienes asistieron y el número que usaron hoy.</p>
+      <p className={styles.hint}>Agregá solamente quienes asistieron. El número puede quedar vacío. En tiros al arco contá goles y atajadas, no tiros desviados ni penales.</p>
       <form className={styles.rosterForm} onSubmit={submit}>
-        <label>Jugador/a<select required value={playerId} onChange={(event) => {
-          const id = event.target.value
-          setPlayerId(id)
-          const player = players.find((item) => item.id === id)
-          setJerseyNumber(player?.number?.toString() ?? '')
-        }}><option value="">Seleccionar…</option>{availablePlayers.map((player) => <option key={player.id} value={player.id}>{player.name} · {teams.find((team) => team.id === player.teamId)?.name}</option>)}</select></label>
-        <label>Número usado<input required type="number" min="0" value={jerseyNumber} onChange={(event) => setJerseyNumber(event.target.value)} /></label>
-        <button type="submit">Agregar convocado</button>
+        <label>Jugador/a<select required value={playerId} onChange={(event) => pick(event.target.value)}><option value="">Seleccionar…</option>{availablePlayers.map((player) => <option key={player.id} value={player.id}>{player.name} · {teams.find((team) => team.id === player.teamId)?.name}</option>)}</select></label>
+        <label>Número usado (opcional)<input type="number" min="0" value={jerseyNumber} onChange={(event) => setJerseyNumber(event.target.value)} /></label>
+        <label>Tiros 1.er período<input type="number" min="0" value={shotsPeriod1} onChange={(event) => setShotsPeriod1(event.target.value)} /></label>
+        <label>Tiros 2.º período<input type="number" min="0" value={shotsPeriod2} onChange={(event) => setShotsPeriod2(event.target.value)} /></label>
+        <label>Tiros tiempo extra<input type="number" min="0" value={shotsOvertime} onChange={(event) => setShotsOvertime(event.target.value)} /></label>
+        <button type="submit">Guardar convocado</button>
       </form>
-      <div className={styles.rosterEntries}>{entries.map((entry) => <div key={entry.id}><span><strong>#{entry.jerseyNumber}</strong> {entry.playerName} · {teams.find((team) => team.id === entry.teamId)?.name}</span><button type="button" className={styles.danger} onClick={() => removeMatchRosterEntry(entry.id)}>Quitar</button></div>)}</div>
+      <div className={styles.rosterEntries}>{entries.map((entry) => <div key={entry.id}><span><strong>{entry.jerseyNumber === undefined ? '' : `#${entry.jerseyNumber} `}{entry.playerName}</strong> · {teams.find((team) => team.id === entry.teamId)?.name} · {shotsOnTarget(entry)} tiros</span><span className={styles.rowActions}><button type="button" className={styles.secondary} onClick={() => pick(entry.playerId)}>Editar</button><button type="button" className={styles.danger} onClick={() => removeMatchRosterEntry(entry.id)}>Quitar</button></span></div>)}</div>
     </div>
   )
 }
@@ -883,7 +915,7 @@ function EventForm({ match, teams, players, entries, edited, onSaved, onCancel }
     // name, so correcting one of those must still offer them.
     .filter(({ player: found }) => Boolean(found?.active || (found && found.id === edited?.playerId)))
     .map(({ entry, player: found }) => ({ id: found!.id, name: found!.name, jerseyNumber: entry.jerseyNumber }))
-    .sort((a, b) => a.jerseyNumber - b.jerseyNumber)
+    .sort((a, b) => (a.jerseyNumber ?? Number.MAX_SAFE_INTEGER) - (b.jerseyNumber ?? Number.MAX_SAFE_INTEGER))
 
   // Typing a number is the normal path, so it resolves the player by itself.
   const setJersey = (set: typeof setPlayer) => (value: string) =>

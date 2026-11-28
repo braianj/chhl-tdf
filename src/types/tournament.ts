@@ -21,6 +21,8 @@ export interface Team {
   shortName: string
   color?: string
   logo?: string
+  // Used only when every sporting tiebreak criterion remains equal.
+  drawOrder?: number
 }
 
 export interface Match {
@@ -92,6 +94,7 @@ export interface StandingRow {
   goalsAgainst: number
   goalDifference: number
   points: number
+  tiebreakPending?: boolean
 }
 
 export type MatchEventType = 'goal' | 'penalty' | 'major-penalty'
@@ -141,10 +144,13 @@ export interface MatchRosterEntry {
   teamId: string
   playerId: string
   playerName: string
-  jerseyNumber: number
+  jerseyNumber?: number
+  shotsPeriod1?: number
+  shotsPeriod2?: number
+  shotsOvertime?: number
   // The goalkeeper's line for this match, copied from the scoresheet footer. Absent
   // for everybody else, and absent for a goalkeeper whose line was not filled in.
-  // Shots on target are not stored: they are saves plus goals against.
+  // Goalkeeper shots faced are not stored: they are saves plus goals against.
   saves?: number
   goalsAgainst?: number
   minutesPlayed?: number
@@ -161,4 +167,6 @@ export interface PlayerStatistic {
   penalties: number
   majorPenalties: number
   penaltyMinutes: number
+  shotsOnTarget: number
+  shootingPercentage?: number
 }

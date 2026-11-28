@@ -80,7 +80,9 @@ export function buildMatchSummary(
   const numbers = new Map<string, number>()
   rosters
     .filter((entry) => entry.matchId === matchId)
-    .forEach((entry) => numbers.set(rosterKey(entry.teamId, entry.playerName), entry.jerseyNumber))
+    .forEach((entry) => {
+      if (entry.jerseyNumber !== undefined) numbers.set(rosterKey(entry.teamId, entry.playerName), entry.jerseyNumber)
+    })
 
   // A number with nobody behind it is written out as such: the scoresheet did record
   // somebody, and hiding the row would lose that.

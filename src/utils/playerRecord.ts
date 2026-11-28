@@ -1,6 +1,7 @@
 import type { Match, MatchEvent, MatchRosterEntry, Player, Team } from '../types/tournament'
 import { elapsedTime } from './matchSummary'
 import { sortMatches } from './matches'
+import { shotsOnTarget } from './shots'
 
 export type PlayerActionType = 'goal' | 'assist' | 'penalty' | 'major-penalty'
 
@@ -21,6 +22,7 @@ export interface PlayerMatch {
   opponent: string
   jerseyNumber?: number
   actions: PlayerAction[]
+  shotsOnTarget: number
 }
 
 export interface PlayerRecord {
@@ -31,6 +33,8 @@ export interface PlayerRecord {
   penalties: number
   majorPenalties: number
   penaltyMinutes: number
+  shotsOnTarget: number
+  shootingPercentage?: number
   /** Every match dressed for, most recent first. */
   matches: PlayerMatch[]
 }
@@ -93,16 +97,20 @@ export function buildPlayerRecord(
   // something that happened, so it is listed rather than silently dropped.
   const played = new Set([...byMatch.keys(), ...actions.keys()])
   const listed = sortMatches(matches.filter((match) => played.has(match.id))).reverse()
+  const totalShots = dressed.reduce((total, entry) => total + shotsOnTarget(entry), 0)
 
   return {
     played: byMatch.size,
     ...totals,
     points: totals.goals + totals.assists,
+    shotsOnTarget: totalShots,
+    shootingPercentage: totalShots > 0 ? Math.round((totals.goals / totalShots) * 10_000) / 100 : undefined,
     matches: listed.map((match) => ({
       matchId: match.id,
       startDateTime: match.startDateTime,
       opponent: teamName(match.homeTeamId === player.teamId ? match.awayTeamId : match.homeTeamId),
       jerseyNumber: byMatch.get(match.id)?.jerseyNumber,
+      shotsOnTarget: byMatch.has(match.id) ? shotsOnTarget(byMatch.get(match.id)!) : 0,
       actions: actions.get(match.id) ?? [],
     })),
   }
